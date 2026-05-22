@@ -1,0 +1,131 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  clients   Client[]
+  invoices  Invoice[]
+  reminders Reminder[]
+
+  @@map("users")
+}
+
+model Client {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  phone     String?
+  address   String?
+  city      String?
+  country   String?
+  zipCode   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  invoices  Invoice[]
+
+  @@unique([userId, email])
+  @@map("clients")
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invoiceNumber String         @unique
+  description   String?
+  amount        Float
+  tax           Float          @default(0)
+  totalAmount   Float
+  status        InvoiceStatus  @default(PENDING)
+  dueDate       DateTime
+  issuedDate    DateTime       @default(now())
+  paidDate      DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  items     InvoiceItem[]
+  payments  Payment[]
+  reminders Reminder[]
+
+  @@index([userId])
+  @@index([clientId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int
+  rate        Float
+  amount      Float
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    Float
+  paymentDate DateTime @default(now())
+  method    String?  // Credit Card, Bank Transfer, Cash, etc
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  status    ReminderStatus @default(PENDING)
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([invoiceId])
+  @@map("reminders")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
